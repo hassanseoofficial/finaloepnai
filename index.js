@@ -34,9 +34,22 @@ async function createThread() {
 // Add message to thread
 async function addMsgToThread(msg, threadId) {
   try {
+    // Modify the prompt to request structured JSON output
+    const structuredPrompt = `
+      Please analyze this email and provide the information in the following format:
+      {
+        "email": "extracted email or null",
+        "phone": "extracted phone number or null",
+        "name": "extracted first and last name or null",
+        "intent": "extracted intent or null"
+      }
+      
+      Email content: ${msg}
+    `;
+    
     const message = await openai.beta.threads.messages.create(threadId, {
       role: 'user',
-      content: msg
+      content: structuredPrompt
     });
     return message;
   } catch (error) {
@@ -66,6 +79,32 @@ async function retrieveRun(threadId, runId) {
   } catch (error) {
     console.error('Error retrieving run:', error);
     throw error;
+  }
+}
+
+// Function to parse and structure the assistant's response
+function parseAssistantResponse(response) {
+  try {
+    // Try to parse if response is already JSON
+    if (typeof response === 'string' && response.trim().startsWith('{')) {
+      return JSON.parse(response);
+    }
+
+    // Default structure if parsing fails
+    return {
+      email: null,
+      phone: null,
+      name: null,
+      intent: null
+    };
+  } catch (error) {
+    console.error('Error parsing response:', error);
+    return {
+      email: null,
+      phone: null,
+      name: null,
+      intent: null
+    };
   }
 }
 
@@ -106,7 +145,10 @@ app.post('/analyze', async (req, res) => {
       const messages = await openai.beta.threads.messages.list(thread.id);
       const assistantResponse = messages.data[0].content[0].text.value;
       
-      res.json({ response: assistantResponse });
+      // Parse and structure the response
+      const structuredResponse = parseAssistantResponse(assistantResponse);
+      
+      res.json(structuredResponse);
     } else {
       res.status(500).json({ error: 'Processing not completed', status: runStatus.status });
     }
