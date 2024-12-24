@@ -1,7 +1,5 @@
-// server.js
 const express = require('express');
 const OpenAI = require('openai');
-const fs = require('fs').promises;
 const bodyParser = require('body-parser');
 require('dotenv').config();
 
@@ -18,20 +16,6 @@ const openai = new OpenAI({
 });
 
 const ASSISTANT_ID = process.env.ASSISTANT_ID;
-
-// Simple logging function
-async function createLog(fileName, logContent) {
-  const date = new Date();
-  const formattedDate = date.toISOString().split('T')[0];
-  const timestamp = date.toISOString();
-  const logEntry = `${timestamp} ${JSON.stringify(logContent)}\n\n`;
-  
-  try {
-    await fs.appendFile(`${formattedDate}_${fileName}`, logEntry);
-  } catch (error) {
-    console.error('Error writing to log:', error);
-  }
-}
 
 // Create a new thread
 async function createThread() {
@@ -103,7 +87,7 @@ app.post('/analyze', async (req, res) => {
 
     // Create new thread
     const thread = await createThread();
-    await createLog('assistant.log', { event: 'Thread created', threadId: thread.id });
+    console.log('Thread created:', thread.id);
 
     // Add message to thread
     await addMsgToThread(emailBody, thread.id);
@@ -129,11 +113,6 @@ app.post('/analyze', async (req, res) => {
 
   } catch (error) {
     console.error('Error processing request:', error);
-    await createLog('error.log', { 
-      error: error.message,
-      timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV
-    });
     
     if (error.message.includes('API key')) {
       return res.status(500).json({ 
